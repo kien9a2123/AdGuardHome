@@ -245,7 +245,7 @@ type Result struct {
 	Rule       string   `json:",omitempty"` // Original rule text
 	IP         net.IP   `json:",omitempty"` // Not nil only in the case of a hosts file syntax
 	FilterID   int64    `json:",omitempty"` // Filter ID the rule belongs to
-	clientTags []string `json:"-"`          // This rule applies only to the tagged clients
+	clientTags []string // This rule applies only to the tagged clients
 
 	// for ReasonRewrite:
 	CanonName string   `json:",omitempty"` // CNAME value

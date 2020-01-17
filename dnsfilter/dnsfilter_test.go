@@ -479,6 +479,37 @@ func TestClientSettings(t *testing.T) {
 	assert.True(t, r.IsFiltered && r.Reason == FilteredBlockedService)
 }
 
+func TestClientTags(t *testing.T) {
+	filters := make(map[int]string)
+	filters[0] = `||host1^$ctag=pc|printer
+||host2^$ctag=pc|printer
+||host1^
+`
+	d := NewForTest(&Config{ParentalEnabled: false, SafeBrowsingEnabled: false}, filters)
+	defer d.Close()
+
+	// global rule
+	setts.ClientTags = []string{"phone"}
+	r, _ := d.CheckHost("host1", dns.TypeA, &setts)
+	assert.True(t, r.IsFiltered && r.Reason == FilteredBlackList)
+	assert.True(t, r.Rule == "||host1^")
+
+	// 1 tag matches
+	setts.ClientTags = []string{"phone", "printer"}
+	r, _ = d.CheckHost("host2", dns.TypeA, &setts)
+	assert.True(t, r.IsFiltered && r.Reason == FilteredBlackList)
+
+	// tags don't match
+	setts.ClientTags = []string{"phone"}
+	r, _ = d.CheckHost("host2", dns.TypeA, &setts)
+	assert.True(t, !r.IsFiltered)
+
+	// tags don't match
+	setts.ClientTags = []string{}
+	r, _ = d.CheckHost("host2", dns.TypeA, &setts)
+	assert.True(t, !r.IsFiltered)
+}
+
 func TestRewrites(t *testing.T) {
 	d := Dnsfilter{}
 	// CNAME, A, AAAA
