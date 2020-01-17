@@ -17,27 +17,26 @@ import {
     STANDARD_HTTPS_PORT,
     CHECK_TIMEOUT,
     DNS_RECORD_TYPES,
+    DEFAULT_TIME_FORMAT,
+    DEFAULT_DATE_FORMAT_OPTIONS,
+    DETAILED_DATE_FORMAT_OPTIONS,
+    DEFAULT_LANGUAGE,
 } from './constants';
 
 export const formatTime = (time) => {
     const parsedTime = dateParse(time);
-    return dateFormat(parsedTime, 'HH:mm:ss');
+    return dateFormat(parsedTime, DEFAULT_TIME_FORMAT);
 };
 
-export const formatDateTime = (dateTime) => {
-    const currentLanguage = i18n.languages[0] || 'en';
+export const formatDateTime = (dateTime, options = DEFAULT_DATE_FORMAT_OPTIONS) => {
+    const currentLanguage = i18n.languages[0] || DEFAULT_LANGUAGE;
     const parsedTime = dateParse(dateTime);
-    const options = {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: false,
-    };
 
     return parsedTime.toLocaleString(currentLanguage, options);
 };
+
+export const formatDetailedDateTime = dateTime =>
+    formatDateTime(dateTime, DETAILED_DATE_FORMAT_OPTIONS);
 
 export const normalizeLogs = logs => logs.map((log) => {
     const {

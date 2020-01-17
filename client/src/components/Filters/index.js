@@ -8,6 +8,7 @@ import Card from '../ui/Card';
 import CellWrap from '../ui/CellWrap';
 import UserRules from './UserRules';
 import Modal from './Modal';
+import { formatDetailedDateTime } from '../../helpers/helpers';
 
 class Filters extends Component {
     componentDidMount() {
@@ -45,6 +46,13 @@ class Filters extends Component {
             this.props.removeFilter({ url });
         }
     };
+
+    getTimeCell = ({ value }) => (
+        <div className="logs__row">
+            <span className="logs__text" title={formatDetailedDateTime(value)}>
+                {formatDetailedDateTime(value)}
+            </span>
+        </div>);
 
     columns = [
         {
@@ -89,7 +97,7 @@ class Filters extends Component {
             accessor: 'lastUpdated',
             className: 'text-center',
             minWidth: 150,
-            Cell: CellWrap,
+            Cell: this.getTimeCell,
         },
         {
             Header: <Trans>actions_table_header</Trans>,
