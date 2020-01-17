@@ -488,11 +488,13 @@ func processFiltering(ctx *dnsContext) int {
 	}
 	s.RUnlock()
 
-	res := ctx.result
-	if res.Reason == dnsfilter.ReasonRewrite && len(res.CanonName) != 0 {
-		ctx.origQuestion = d.Req.Question[0]
-		// resolve canonical name, not the original host name
-		d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
+	if d.Res == nil {
+		res := ctx.result
+		if res.Reason == dnsfilter.ReasonRewrite && len(res.CanonName) != 0 {
+			ctx.origQuestion = d.Req.Question[0]
+			// resolve canonical name, not the original host name
+			d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
+		}
 	}
 
 	if err != nil {
@@ -611,6 +613,7 @@ func processQueryLogsAndStats(ctx *dnsContext) int {
 // nolint (gocyclo)
 func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	ctx := &dnsContext{srv: s, proxyCtx: d}
+	ctx.result = &dnsfilter.Result{}
 	ctx.startTime = time.Now()
 
 	r := processInitial(ctx)
