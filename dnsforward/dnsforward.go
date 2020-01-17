@@ -425,17 +425,18 @@ func (s *Server) beforeRequestHandler(p *proxy.Proxy, d *proxy.DNSContext) (bool
 	return true, nil
 }
 
+// To transfer information between modules
 type dnsContext struct {
 	srv                  *Server
 	proxyCtx             *proxy.DNSContext
-	setts                *dnsfilter.RequestFilteringSettings
+	setts                *dnsfilter.RequestFilteringSettings // filtering settings for this client
 	startTime            time.Time
 	result               *dnsfilter.Result
-	origResp             *dns.Msg
-	origQuestion         dns.Question
-	err                  error
-	protectionEnabled    bool
-	responseFromUpstream bool
+	origResp             *dns.Msg     // response received from upstream servers.  Set when response is modified by filtering
+	origQuestion         dns.Question // question received from client.  Set when Rewrites are used.
+	err                  error        // error returned from the module
+	protectionEnabled    bool         // filtering is enabled, dnsfilter object is ready
+	responseFromUpstream bool         // response is received from upstream servers
 }
 
 const (
@@ -488,15 +489,6 @@ func processFiltering(ctx *dnsContext) int {
 	}
 	s.RUnlock()
 
-	if d.Res == nil {
-		res := ctx.result
-		if res.Reason == dnsfilter.ReasonRewrite && len(res.CanonName) != 0 {
-			ctx.origQuestion = d.Req.Question[0]
-			// resolve canonical name, not the original host name
-			d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
-		}
-	}
-
 	if err != nil {
 		ctx.err = err
 		return resultError
@@ -509,7 +501,7 @@ func processUpstream(ctx *dnsContext) int {
 	s := ctx.srv
 	d := ctx.proxyCtx
 	if d.Res != nil {
-		return resultDone
+		return resultDone // response is already set - nothing to do
 	}
 
 	if d.Addr != nil && s.conf.GetUpstreamsByClient != nil {
@@ -540,7 +532,7 @@ func processFiltering2(ctx *dnsContext) int {
 	var err error
 
 	if !ctx.responseFromUpstream {
-		return resultDone
+		return resultDone // don't process response if it's not from upstream servers
 	}
 
 	if res.Reason == dnsfilter.ReasonRewrite && len(res.CanonName) != 0 {
@@ -616,36 +608,21 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	ctx.result = &dnsfilter.Result{}
 	ctx.startTime = time.Now()
 
-	r := processInitial(ctx)
-	switch r {
-	case resultFinish:
-		return nil
-	case resultError:
-		return ctx.err
+	type modProcessFunc func(ctx *dnsContext) int
+	mods := []modProcessFunc{
+		processInitial,
+		processFiltering,
+		processUpstream,
+		processFiltering2,
 	}
-
-	r = processFiltering(ctx)
-	switch r {
-	case resultFinish:
-		return nil
-	case resultError:
-		return ctx.err
-	}
-
-	r = processUpstream(ctx)
-	switch r {
-	case resultFinish:
-		return nil
-	case resultError:
-		return ctx.err
-	}
-
-	r = processFiltering2(ctx)
-	switch r {
-	case resultFinish:
-		return nil
-	case resultError:
-		return ctx.err
+	for _, process := range mods {
+		r := process(ctx)
+		switch r {
+		case resultFinish:
+			return nil
+		case resultError:
+			return ctx.err
+		}
 	}
 
 	if d.Res != nil {
@@ -756,6 +733,11 @@ func (s *Server) filterDNSRequest(ctx *dnsContext) (*dnsfilter.Result, error) {
 		}
 
 		d.Res = resp
+
+	} else if res.Reason == dnsfilter.ReasonRewrite && len(res.CanonName) != 0 {
+		ctx.origQuestion = d.Req.Question[0]
+		// resolve canonical name, not the original host name
+		d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
 	}
 
 	return &res, err
