@@ -137,12 +137,18 @@ func handleFilteringRemoveURL(w http.ResponseWriter, r *http.Request) {
 }
 
 type filterURLJSON struct {
+	Name    string `json:"name"`
 	URL     string `json:"url"`
 	Enabled bool   `json:"enabled"`
 }
 
+type filterURLReq struct {
+	URL  string        `json:"url"`
+	Data filterURLJSON `json:"data"`
+}
+
 func handleFilteringSetURL(w http.ResponseWriter, r *http.Request) {
-	fj := filterURLJSON{}
+	fj := filterURLReq{}
 	err := json.NewDecoder(r.Body).Decode(&fj)
 	if err != nil {
 		httpError(w, http.StatusBadRequest, "json decode: %s", err)
@@ -154,7 +160,12 @@ func handleFilteringSetURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found := filterEnable(fj.URL, fj.Enabled)
+	f := filter{
+		Enabled: fj.Data.Enabled,
+		Name:    fj.Data.Name,
+		URL:     fj.Data.URL,
+	}
+	found := filterSetProperties(fj.URL, f)
 	if !found {
 		http.Error(w, "URL doesn't exist", http.StatusBadRequest)
 		return
